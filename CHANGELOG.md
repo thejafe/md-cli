@@ -4,3 +4,4 @@
 
 - init(project): scaffold bun + typescript project
 - feat(utils): add path normalization and file type utilities
+- feat(utils): frontmatter parser, tag/link extraction, serializer

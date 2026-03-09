@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-09
+
+- feat(config): vault registry with XDG support
+
 ## 2026-03-08
 
 - init(project): scaffold bun + typescript project

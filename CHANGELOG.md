@@ -3,6 +3,7 @@
 ## 2026-03-09
 
 - feat(config): vault registry with XDG support
+- feat(adapter): filesystem adapter with Bun.file I/O
 
 ## 2026-03-08
 

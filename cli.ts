@@ -36,6 +36,13 @@ function printVaultInfo(v: config.VaultConfig): void {
   console.log(`  Trash:             ${v.trashOption}`);
 }
 
+async function readStdin(): Promise<string | null> {
+  if (Bun.stdin.stream().locked) return null;
+  if (process.stdin.isTTY) return null;
+  const text = await Bun.stdin.text();
+  return text || null;
+}
+
 // ─── Command dispatch ────────────────────────────────────────────────────────
 
 async function main() {
@@ -47,6 +54,7 @@ async function main() {
     console.log("  vault init     Register a vault");
     console.log("  vault list     List registered vaults");
     console.log("  vault status   Show vault statistics");
+    console.log("  vault config   View or update vault config");
     console.log("  vault unlink   Deregister a vault");
     return;
   }
@@ -70,6 +78,9 @@ async function vaultCmd() {
       path: { type: "string", short: "p" },
       name: { type: "string", short: "n" },
       "config-dir": { type: "string" },
+      "daily-folder": { type: "string" },
+      "attachment-folder": { type: "string" },
+      "trash-option": { type: "string" },
     },
     strict: false,
     allowPositionals: true,
@@ -79,8 +90,9 @@ async function vaultCmd() {
     case "init":   return vaultInit(opts);
     case "list":   return vaultList();
     case "status": return vaultStatus(opts);
+    case "config": return vaultConfig(opts);
     case "unlink": return vaultUnlink(opts);
-    default: die("Usage: md vault <init|list|status|unlink>");
+    default: die("Usage: md vault <init|list|status|config|unlink>");
   }
 }
 
@@ -146,6 +158,42 @@ async function vaultStatus(opts: { values: Record<string, unknown> }) {
     console.log(`  Attachments:   ${v.attachmentFolder || "(vault root)"}`);
     console.log(`  Trash:         ${v.trashOption || "local"}`);
   }
+}
+
+function vaultConfig(opts: { values: Record<string, unknown> }) {
+  const vaultPath = config.resolveVaultPath(opts.values.path as string | undefined);
+  let v = config.findVault(vaultPath);
+  if (!v) die(`No vault registered at ${vaultPath}\nRun 'md vault init' first.`, 3);
+
+  const updates: config.VaultUpdateOpts = {};
+  let changed = false;
+
+  const set = <K extends keyof config.VaultUpdateOpts>(
+    key: K, argKey: string
+  ) => {
+    const val = opts.values[argKey];
+    if (val !== undefined) {
+      (updates as Record<string, unknown>)[key] = val;
+      changed = true;
+    }
+  };
+
+  set("name", "name");
+  set("dailyFolder", "daily-folder");
+  set("attachmentFolder", "attachment-folder");
+  set("configDir", "config-dir");
+
+  const trash = opts.values["trash-option"] as string | undefined;
+  if (trash !== undefined) {
+    if (!["local", "system", "permanent"].includes(trash))
+      die('Invalid trash option. Must be: local, system, or permanent');
+    updates.trashOption = trash as config.VaultConfig["trashOption"];
+    changed = true;
+  }
+
+  if (changed) v = config.registerVault(vaultPath, updates);
+  console.log(changed ? "Configuration updated:" : "Current configuration:");
+  printVaultInfo(v!);
 }
 
 function vaultUnlink(opts: { values: Record<string, unknown> }) {

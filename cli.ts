@@ -43,6 +43,27 @@ async function readStdin(): Promise<string | null> {
   return text || null;
 }
 
+function noteOpts() {
+  return parseArgs({
+    args: args.slice(2),
+    options: {
+      path: { type: "string", short: "p" },
+      folder: { type: "string", short: "f" },
+      long: { type: "boolean", short: "l" },
+      content: { type: "string", short: "c" },
+      tags: { type: "string", short: "t" },
+      force: { type: "boolean", short: "f" },
+      frontmatter: { type: "boolean" },
+      body: { type: "boolean" },
+      append: { type: "string", short: "a" },
+      prepend: { type: "string" },
+      permanent: { type: "boolean" },
+    },
+    strict: false,
+    allowPositionals: true,
+  });
+}
+
 // ─── Command dispatch ────────────────────────────────────────────────────────
 
 async function main() {
@@ -51,11 +72,17 @@ async function main() {
     console.log("USAGE");
     console.log("  md <command> [options]\n");
     console.log("COMMANDS");
-    console.log("  vault init     Register a vault");
-    console.log("  vault list     List registered vaults");
-    console.log("  vault status   Show vault statistics");
-    console.log("  vault config   View or update vault config");
-    console.log("  vault unlink   Deregister a vault");
+    console.log("  vault init      Register a vault");
+    console.log("  vault list      List registered vaults");
+    console.log("  vault status    Show vault statistics");
+    console.log("  vault config    View or update vault config");
+    console.log("  vault unlink    Deregister a vault");
+    console.log("  note list       List notes");
+    console.log("  note read       Read a note");
+    console.log("  note create     Create a note");
+    console.log("  note edit       Edit a note");
+    console.log("  note delete     Delete a note");
+    console.log("  note rename     Rename a note");
     return;
   }
   if (command === "--version" || command === "-V") {
@@ -65,6 +92,7 @@ async function main() {
 
   switch (command) {
     case "vault": return vaultCmd();
+    case "note":  return noteCmd();
     default: die(`Unknown command: ${command}\nRun 'md --help' for usage.`);
   }
 }
@@ -200,6 +228,154 @@ function vaultUnlink(opts: { values: Record<string, unknown> }) {
   const vaultPath = config.resolveVaultPath(opts.values.path as string | undefined);
   if (config.unregisterVault(vaultPath)) console.log(`Vault deregistered: ${vaultPath}`);
   else die(`No vault registered at ${vaultPath}`, 3);
+}
+
+// ─── note ────────────────────────────────────────────────────────────────────
+
+async function noteCmd() {
+  switch (subcommand) {
+    case "list":   return noteList();
+    case "read":   return noteRead();
+    case "create": return noteCreate();
+    case "edit":   return noteEdit();
+    case "delete": return noteDelete();
+    case "rename": return noteRename();
+    default: die("Usage: md note <list|read|create|edit|delete|rename>");
+  }
+}
+
+function noteList() {
+  const opts = noteOpts();
+  const a = adapter(opts.values.path as string | undefined);
+  const notes = a.listNotes((opts.values.folder as string) || "");
+
+  if (notes.length === 0) { console.log("No notes found."); return; }
+
+  if (opts.values.long) {
+    for (const n of notes) {
+      const s = a.stat(n);
+      const mtime = s ? new Date(s.mtime).toISOString().substring(0, 19) : "";
+      const size = s ? utils.formatSize(s.size).padStart(10) : "";
+      console.log(`${mtime}  ${size}  ${n}`);
+    }
+  } else {
+    for (const n of notes) console.log(n);
+  }
+}
+
+async function noteRead() {
+  const opts = noteOpts();
+  const notePath = opts.positionals[0];
+  if (!notePath) die("Usage: md note read <note>");
+  const a = adapter(opts.values.path as string | undefined);
+  const resolved = utils.resolveNotePath(notePath);
+
+  if (!a.exists(resolved)) die(`Note not found: ${resolved}`);
+
+  const content = await a.read(resolved);
+
+  if (opts.values.frontmatter || opts.values.body) {
+    const { data, body } = utils.parseFrontmatter(content);
+    if (opts.values.frontmatter) {
+      if (data) console.log(JSON.stringify(data, null, 2));
+    } else {
+      await Bun.write(Bun.stdout, body);
+    }
+  } else {
+    await Bun.write(Bun.stdout, content);
+  }
+}
+
+async function noteCreate() {
+  const opts = noteOpts();
+  const notePath = opts.positionals[0];
+  if (!notePath) die("Usage: md note create <note> [--content <text>] [--tags <tags>]");
+
+  const a = adapter(opts.values.path as string | undefined);
+  const resolved = utils.resolveNotePath(notePath);
+
+  if (a.exists(resolved) && !opts.values.force)
+    die(`Note already exists: ${resolved}\nUse --force to overwrite.`);
+
+  let content = (opts.values.content as string)?.replace(/\\n/g, "\n")
+    ?? await readStdin()
+    ?? "";
+
+  if (opts.values.tags) {
+    const tags = (opts.values.tags as string).split(",").map((t) => t.trim()).filter(Boolean);
+    const { data, body } = utils.parseFrontmatter(content);
+    content = utils.serializeFrontmatter({ ...(data || {}), tags }, body || content);
+  }
+
+  await a.write(resolved, content);
+  console.log(`Created: ${resolved}`);
+}
+
+async function noteEdit() {
+  const opts = noteOpts();
+  const notePath = opts.positionals[0];
+  if (!notePath) die("Usage: md note edit <note> [--content|--append|--prepend <text>]");
+
+  const a = adapter(opts.values.path as string | undefined);
+  const resolved = utils.resolveNotePath(notePath);
+  if (!a.exists(resolved)) die(`Note not found: ${resolved}`);
+
+  if (opts.values.content !== undefined) {
+    await a.write(resolved, (opts.values.content as string).replace(/\\n/g, "\n"));
+    console.log(`Updated: ${resolved}`);
+  } else if (opts.values.append !== undefined) {
+    const text = (opts.values.append as string).replace(/\\n/g, "\n");
+    a.append(resolved, (text.startsWith("\n") ? "" : "\n") + text);
+    console.log(`Appended to: ${resolved}`);
+  } else if (opts.values.prepend !== undefined) {
+    const existing = await a.read(resolved);
+    const { data, body } = utils.parseFrontmatter(existing);
+    const text = (opts.values.prepend as string).replace(/\\n/g, "\n");
+    const newBody = text + "\n" + body;
+    await a.write(resolved, data ? utils.serializeFrontmatter(data, newBody) : newBody);
+    console.log(`Prepended to: ${resolved}`);
+  } else {
+    const stdin = await readStdin();
+    if (stdin) {
+      await a.write(resolved, stdin);
+      console.log(`Updated: ${resolved}`);
+    } else {
+      die("No content provided. Use --content, --append, --prepend, or pipe via stdin.");
+    }
+  }
+}
+
+function noteDelete() {
+  const opts = noteOpts();
+  const notePath = opts.positionals[0];
+  if (!notePath) die("Usage: md note delete <note>");
+
+  const a = adapter(opts.values.path as string | undefined);
+  const v = config.findVault(config.resolveVaultPath(opts.values.path as string | undefined));
+  const resolved = utils.resolveNotePath(notePath);
+  if (!a.exists(resolved)) die(`Note not found: ${resolved}`);
+
+  if (opts.values.permanent || v?.trashOption === "permanent") {
+    a.remove(resolved);
+    console.log(`Deleted: ${resolved}`);
+  } else {
+    a.trash(resolved);
+    console.log(`Moved to trash: ${resolved}`);
+  }
+}
+
+function noteRename() {
+  const opts = noteOpts();
+  const [from, to] = opts.positionals;
+  if (!from || !to) die("Usage: md note rename <note> <new-name>");
+
+  const a = adapter(opts.values.path as string | undefined);
+  const resolved = utils.resolveNotePath(from);
+  const newResolved = utils.resolveNotePath(to);
+  if (!a.exists(resolved)) die(`Note not found: ${resolved}`);
+
+  a.rename(resolved, newResolved);
+  console.log(`Renamed: ${resolved} -> ${newResolved}`);
 }
 
 main().catch((e) => { console.error(e.message); process.exit(1); });

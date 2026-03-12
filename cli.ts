@@ -58,6 +58,23 @@ function noteOpts() {
       append: { type: "string", short: "a" },
       prepend: { type: "string" },
       permanent: { type: "boolean" },
+      regex: { type: "boolean", short: "r" },
+      count: { type: "boolean" },
+    },
+    strict: false,
+    allowPositionals: true,
+  });
+}
+
+function toolOpts() {
+  return parseArgs({
+    args: args.slice(1),
+    options: {
+      path: { type: "string", short: "p" },
+      count: { type: "boolean", short: "c" },
+      folder: { type: "string", short: "f" },
+      date: { type: "string", short: "d" },
+      depth: { type: "string", short: "d" },
     },
     strict: false,
     allowPositionals: true,
@@ -83,6 +100,12 @@ async function main() {
     console.log("  note edit       Edit a note");
     console.log("  note delete     Delete a note");
     console.log("  note rename     Rename a note");
+    console.log("  note search     Full-text search");
+    console.log("  tags            List all tags");
+    console.log("  daily           Daily note");
+    console.log("  backlinks       Find backlinks");
+    console.log("  links           List outgoing links");
+    console.log("  tree            Directory tree");
     return;
   }
   if (command === "--version" || command === "-V") {
@@ -93,6 +116,11 @@ async function main() {
   switch (command) {
     case "vault": return vaultCmd();
     case "note":  return noteCmd();
+    case "tags":  return tagsCmd();
+    case "daily": return dailyCmd();
+    case "backlinks": return backlinksCmd();
+    case "links": return linksCmd();
+    case "tree":  return treeCmd();
     default: die(`Unknown command: ${command}\nRun 'md --help' for usage.`);
   }
 }
@@ -240,7 +268,8 @@ async function noteCmd() {
     case "edit":   return noteEdit();
     case "delete": return noteDelete();
     case "rename": return noteRename();
-    default: die("Usage: md note <list|read|create|edit|delete|rename>");
+    case "search": return noteSearch();
+    default: die("Usage: md note <list|read|create|edit|delete|rename|search>");
   }
 }
 
@@ -376,6 +405,141 @@ function noteRename() {
 
   a.rename(resolved, newResolved);
   console.log(`Renamed: ${resolved} -> ${newResolved}`);
+}
+
+async function noteSearch() {
+  const opts = noteOpts();
+  const query = opts.positionals[0];
+  if (!query) die("Usage: md note search <query>");
+
+  const a = adapter(opts.values.path as string | undefined);
+  const results = await a.search(query, (opts.values.folder as string) || "", !!opts.values.regex);
+
+  if (results.length === 0) { console.log("No matches found."); return; }
+
+  if (opts.values.count) {
+    const counts: Record<string, number> = {};
+    for (const r of results) counts[r.path] = (counts[r.path] || 0) + 1;
+    for (const [p, c] of Object.entries(counts)) console.log(`${p}: ${c}`);
+  } else {
+    for (const r of results) console.log(`${r.path}:${r.line}: ${r.text}`);
+  }
+  console.log(`\n${results.length} match${results.length !== 1 ? "es" : ""} found.`);
+}
+
+// ─── Top-level commands ──────────────────────────────────────────────────────
+
+async function tagsCmd() {
+  const opts = toolOpts();
+  const a = adapter(opts.values.path as string | undefined);
+  const notes = a.listNotes();
+  const tagCounts: Record<string, number> = {};
+
+  for (const notePath of notes) {
+    try {
+      const content = await a.read(notePath);
+      const { data, body } = utils.parseFrontmatter(content);
+
+      if (data?.tags) {
+        const fmTags = Array.isArray(data.tags) ? data.tags : [data.tags];
+        for (const t of fmTags) {
+          const tag = String(t).trim();
+          if (tag) tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+        }
+      }
+
+      for (const t of utils.extractInlineTags(body || content)) {
+        tagCounts[t] = (tagCounts[t] || 0) + 1;
+      }
+    } catch { /* skip unreadable */ }
+  }
+
+  const sorted = Object.entries(tagCounts).sort(([a], [b]) => a.localeCompare(b));
+  if (sorted.length === 0) { console.log("No tags found."); return; }
+
+  for (const [tag, count] of sorted) {
+    console.log(opts.values.count ? `#${tag}: ${count}` : `#${tag}`);
+  }
+  console.log(`\n${sorted.length} tag${sorted.length !== 1 ? "s" : ""} found.`);
+}
+
+async function dailyCmd() {
+  const opts = toolOpts();
+  const a = adapter(opts.values.path as string | undefined);
+  const v = config.findVault(config.resolveVaultPath(opts.values.path as string | undefined));
+  const folder = (opts.values.folder as string) || v?.dailyFolder || "";
+
+  const date = (opts.values.date as string) || new Date().toISOString().substring(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) die("Invalid date format. Use YYYY-MM-DD.");
+
+  const notePath = folder ? `${folder}/${date}.md` : `${date}.md`;
+
+  if (a.exists(notePath)) {
+    await Bun.write(Bun.stdout, await a.read(notePath));
+  } else {
+    await a.write(notePath, `---\ndate: ${date}\n---\n\n# ${date}\n\n`);
+    console.log(`Created daily note: ${notePath}`);
+  }
+}
+
+async function backlinksCmd() {
+  const opts = toolOpts();
+  const notePath = opts.positionals[0];
+  if (!notePath) die("Usage: md backlinks <note>");
+
+  const a = adapter(opts.values.path as string | undefined);
+  const resolved = utils.resolveNotePath(notePath);
+  const targetName = utils.withoutExtension(utils.basename(resolved));
+
+  const notes = a.listNotes();
+  const backlinks: string[] = [];
+
+  for (const n of notes) {
+    if (n === resolved) continue;
+    try {
+      const content = await a.read(n);
+      const links = utils.extractWikiLinks(content);
+      if (links.some((l) =>
+        l === targetName || l === resolved || utils.resolveNotePath(l) === resolved
+      )) {
+        backlinks.push(n);
+      }
+    } catch { /* skip */ }
+  }
+
+  if (backlinks.length === 0) { console.log(`No backlinks found for ${resolved}`); return; }
+
+  console.log(`Backlinks to ${resolved}:`);
+  for (const b of backlinks) console.log(`  ${b}`);
+  console.log(`\n${backlinks.length} backlink${backlinks.length !== 1 ? "s" : ""} found.`);
+}
+
+async function linksCmd() {
+  const opts = toolOpts();
+  const notePath = opts.positionals[0];
+  if (!notePath) die("Usage: md links <note>");
+
+  const a = adapter(opts.values.path as string | undefined);
+  const resolved = utils.resolveNotePath(notePath);
+  if (!a.exists(resolved)) die(`Note not found: ${resolved}`);
+
+  const content = await a.read(resolved);
+  const links = utils.extractWikiLinks(content);
+
+  if (links.length === 0) { console.log(`No links found in ${resolved}`); return; }
+
+  console.log(`Links in ${resolved}:`);
+  for (const l of links) {
+    const target = utils.resolveNotePath(l);
+    console.log(`  [[${l}]]${a.exists(target) ? "" : " (missing)"}`);
+  }
+}
+
+function treeCmd() {
+  const opts = toolOpts();
+  const a = adapter(opts.values.path as string | undefined);
+  const depth = opts.values.depth ? parseInt(opts.values.depth as string, 10) : Infinity;
+  process.stdout.write(a.tree("", depth));
 }
 
 main().catch((e) => { console.error(e.message); process.exit(1); });

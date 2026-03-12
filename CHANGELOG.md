@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-12
+
+- feat(cli): search, tags, backlinks, links, tree, daily commands
+
 ## 2026-03-11
 
 - feat(note): note CRUD — list, read, create, edit, delete, rename

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-13
+
+- refactor(cli): extract command metadata to lib/commands.ts
+
 ## 2026-03-12
 
 - feat(cli): search, tags, backlinks, links, tree, daily commands

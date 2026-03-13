@@ -7,7 +7,9 @@
   "bin": {
     "md": "cli.ts"
   },
-  "scripts": {},
+  "scripts": {
+    "gen": "bun run gen-docs.ts"
+  },
   "os": ["linux", "darwin"],
   "keywords": ["obsidian", "vault", "markdown", "notes", "cli"],
   "author": "thejafe",

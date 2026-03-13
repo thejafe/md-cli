@@ -4,6 +4,7 @@
 
 - refactor(cli): extract command metadata to lib/commands.ts
 - feat(docs): auto-generate docs from command metadata
+- docs(readme): README with auto-generated command reference
 
 ## 2026-03-12
 

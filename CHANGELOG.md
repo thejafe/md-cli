@@ -3,6 +3,7 @@
 ## 2026-03-13
 
 - refactor(cli): extract command metadata to lib/commands.ts
+- feat(docs): auto-generate docs from command metadata
 
 ## 2026-03-12
 

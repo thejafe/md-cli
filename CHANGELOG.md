@@ -5,6 +5,7 @@
 - refactor(cli): extract command metadata to lib/commands.ts
 - feat(docs): auto-generate docs from command metadata
 - docs(readme): README with auto-generated command reference
+- refactor(cli): wire cli to use commands.ts for option parsing
 
 ## 2026-03-12
 

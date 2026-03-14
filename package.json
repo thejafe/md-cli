@@ -8,7 +8,10 @@
     "md": "cli.ts"
   },
   "scripts": {
-    "gen": "bun run gen-docs.ts"
+    "gen": "bun run gen-docs.ts",
+    "version:patch": "npm version patch --no-git-tag-version && bun run gen",
+    "version:minor": "npm version minor --no-git-tag-version && bun run gen",
+    "version:major": "npm version major --no-git-tag-version && bun run gen"
   },
   "os": ["linux", "darwin"],
   "keywords": ["obsidian", "vault", "markdown", "notes", "cli"],

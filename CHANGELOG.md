@@ -4,6 +4,7 @@
 
 - feat(cli): embed ASCII splash screen in CLI
 - perf(adapter): concurrent file I/O with 64-worker pool
+- build(version): read version from package.json, add bump scripts
 
 ## 2026-03-13
 

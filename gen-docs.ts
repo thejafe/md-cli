@@ -6,7 +6,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { groups, standaloneCommands } from "./lib/commands.ts";
 import type { CommandDef, CommandGroup, OptionDef } from "./lib/commands.ts";
 
-const VERSION = "0.1.0";
+const { version: VERSION } = JSON.parse(readFileSync("./package.json", "utf-8"));
 const REF_PATH = "./docs/reference.md";
 const README_PATH = "./README.md";
 const BEGIN_MARKER = "<!-- BEGIN AUTO GENERATED REFERENCE -->";

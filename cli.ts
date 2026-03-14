@@ -11,7 +11,7 @@ import * as utils from "./lib/utils.ts";
 import { groups, standaloneCommands, parseArgsOptions, findCommand } from "./lib/commands.ts";
 import type { CommandDef } from "./lib/commands.ts";
 
-const VERSION = "0.1.0";
+const { version: VERSION } = await Bun.file("./package.json").json();
 
 // ─── Splash ──────────────────────────────────────────────────────────────────
 

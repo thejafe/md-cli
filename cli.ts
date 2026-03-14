@@ -11,9 +11,42 @@ import * as utils from "./lib/utils.ts";
 import { groups, standaloneCommands, parseArgsOptions, findCommand } from "./lib/commands.ts";
 import type { CommandDef } from "./lib/commands.ts";
 
-const { version: VERSION } = await Bun.file("./package.json").json();
+const VERSION = "0.1.0";
 
+// ─── Splash ──────────────────────────────────────────────────────────────────
 
+function splash() {
+  const C = "\x1b[0m";
+  const B = "\x1b[1;34m";
+  const W = "\x1b[1;97m";
+  const CB = "\x1b[1;36m";
+  const G = "\x1b[1;32m";
+  const D = "\x1b[0;34m";
+  const Y = "\x1b[1;33m";
+  const M = "\x1b[0;35m";
+
+  console.log(`
+       ${D}▄${B}▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄${D}▄${C}
+      ${B}█${CB}▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓${B}█${C}
+     ${B}█${CB}▓▓${C}                                      ${CB}▓▓${B}█${C}
+     ${B}█${CB}▓▓${C}  ${W}██${C}              ${W}██${C}          ${G}██${C}     ${CB}▓▓${B}█${C}
+     ${B}█${CB}▓▓${C}  ${W}███${C}            ${W}███${C}         ${G}████${C}    ${CB}▓▓${B}█${C}
+     ${B}█${CB}▓▓${C}  ${W}████${C}          ${W}████${C}        ${G}██████${C}   ${CB}▓▓${B}█${C}
+     ${B}█${CB}▓▓${C}  ${W}██${G}▓${W}██${C}        ${W}██${G}▓${W}██${C}       ${G}████████${C}  ${CB}▓▓${B}█${C}
+     ${B}█${CB}▓▓${C}  ${W}██${C} ${G}▓${W}██${C}      ${W}██${C} ${G}▓${W}██${C}        ${G}████${C}    ${CB}▓▓${B}█${C}
+     ${B}█${CB}▓▓${C}  ${W}██${C}  ${G}▓${W}██${C}    ${W}██${C}  ${G}▓${W}██${C}         ${G}██${C}     ${CB}▓▓${B}█${C}
+     ${B}█${CB}▓▓${C}  ${W}██${C}   ${G}▓${W}██${C}  ${W}██${C}   ${G}▓${W}██${C}         ${G}██${C}     ${CB}▓▓${B}█${C}
+     ${B}█${CB}▓▓${C}  ${W}██${C}    ${G}▓${W}████${C}    ${G}▓${W}██${C}                ${CB}▓▓${B}█${C}
+     ${B}█${CB}▓▓${C}  ${W}██${C}     ${G}▓${W}██${C}     ${G}▓${W}██${C}         ${G}██${C}     ${CB}▓▓${B}█${C}
+     ${B}█${CB}▓▓${C}  ${W}██${C}      ${G}▓${C}      ${G}▓${W}██${C}         ${G}██${C}     ${CB}▓▓${B}█${C}
+     ${B}█${CB}▓▓${C}                                      ${CB}▓▓${B}█${C}
+      ${B}█${CB}▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓${B}█${C}
+       ${D}▀${B}▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀${D}▀${C}
+
+                    ${W}m${B}cli ${Y}${VERSION}${C}
+              ${M}the markdown command line${C}
+`);
+}
 
 // ─── Arg parsing ─────────────────────────────────────────────────────────────
 
@@ -66,6 +99,8 @@ async function readStdin(): Promise<string | null> {
 // ─── Command dispatch ────────────────────────────────────────────────────────
 
 async function main() {
+  splash();
+
   if (!command || command === "--help" || command === "-h") {
     printHelp();
     return;

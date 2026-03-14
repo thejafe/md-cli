@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-14
+
+- feat(cli): embed ASCII splash screen in CLI
+
 ## 2026-03-13
 
 - refactor(cli): extract command metadata to lib/commands.ts

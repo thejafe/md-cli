@@ -28,6 +28,27 @@ export interface SearchResult {
   text: string;
 }
 
+const CONCURRENCY = 64;
+
+async function mapPool<T, R>(
+  items: T[],
+  fn: (item: T) => Promise<R>,
+  concurrency = CONCURRENCY,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let idx = 0;
+  async function worker() {
+    while (idx < items.length) {
+      const i = idx++;
+      results[i] = await fn(items[i]!);
+    }
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, items.length) }, () => worker()),
+  );
+  return results;
+}
+
 export class VaultAdapter {
   readonly basePath: string;
   readonly configDir: string;
@@ -151,23 +172,32 @@ export class VaultAdapter {
     return this.listRecursive(folder, (f) => isNote(f) && !isHidden(f));
   }
 
+  /** Read multiple files concurrently. Skips unreadable files. */
+  async readMany(paths: string[]): Promise<Map<string, string>> {
+    const results = new Map<string, string>();
+    await mapPool(paths, async (p) => {
+      try {
+        results.set(p, await this.read(p));
+      } catch { /* skip unreadable */ }
+    });
+    return results;
+  }
+
   async search(query: string, folder = "", useRegex = false): Promise<SearchResult[]> {
     const notes = this.listNotes(folder);
-    const results: SearchResult[] = [];
     const pattern = useRegex ? new RegExp(query, "gi") : null;
     const lower = query.toLowerCase();
+    const contents = await this.readMany(notes);
+    const results: SearchResult[] = [];
 
-    for (const notePath of notes) {
-      try {
-        const content = await this.read(notePath);
-        const lines = content.split("\n");
-        for (let i = 0; i < lines.length; i++) {
-          const line = lines[i]!;
-          const hit = pattern ? pattern.test(line) : line.toLowerCase().includes(lower);
-          if (pattern) pattern.lastIndex = 0;
-          if (hit) results.push({ path: notePath, line: i + 1, text: line.trimEnd() });
-        }
-      } catch { /* skip unreadable */ }
+    for (const [notePath, content] of contents) {
+      const lines = content.split("\n");
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i]!;
+        const hit = pattern ? pattern.test(line) : line.toLowerCase().includes(lower);
+        if (pattern) pattern.lastIndex = 0;
+        if (hit) results.push({ path: notePath, line: i + 1, text: line.trimEnd() });
+      }
     }
 
     return results;

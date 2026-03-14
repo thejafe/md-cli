@@ -3,6 +3,7 @@
 ## 2026-03-14
 
 - feat(cli): embed ASCII splash screen in CLI
+- perf(adapter): concurrent file I/O with 64-worker pool
 
 ## 2026-03-13
 

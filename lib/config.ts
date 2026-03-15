@@ -98,5 +98,18 @@ export function unregisterVault(vaultPath: string): boolean {
 }
 
 export function resolveVaultPath(optPath?: string): string {
-  return resolve(optPath || ".");
+  if (optPath) return resolve(optPath);
+
+  // Check if CWD is inside a registered vault
+  const cwd = resolve(".");
+  const vaults = load();
+  for (const v of vaults) {
+    const vp = resolve(v.path);
+    if (cwd === vp || cwd.startsWith(vp + "/")) return vp;
+  }
+
+  // If exactly one vault is registered, use it
+  if (vaults.length === 1) return resolve(vaults[0].path);
+
+  return cwd;
 }

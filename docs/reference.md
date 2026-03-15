@@ -26,6 +26,8 @@ All commands accept `--path <path>` (`-p`) to specify the vault directory. Defau
   - [`backlinks`](#backlinks)
   - [`links`](#links)
   - [`tree`](#tree)
+  - [`tasks`](#tasks)
+  - [`task`](#task)
 
 ## Vault Management
 
@@ -495,6 +497,63 @@ md tree [-d, --depth <n>]
 ```sh
 md tree
 md tree --depth 2
+```
+
+---
+
+### `tasks`
+
+List tasks in the vault. Use positional keywords to filter: file=<name>, path=<path>, status="<char>", todo, done, total, verbose, daily, format=json|tsv|csv.
+
+```
+md tasks
+```
+
+**Options:**
+
+| Flag | Description | Default |
+|---|---|---|
+| `-p`, `--path` | Path to the notes directory. | current directory |
+
+**Examples:**
+
+```sh
+md tasks
+md tasks todo
+md tasks done
+md tasks file=Recipe done
+md tasks daily
+md tasks daily total
+md tasks verbose
+md tasks 'status=?'
+md tasks format=json
+```
+
+---
+
+### `task`
+
+Show or update a single task. Identify by ref=<path:line> or file=<name> line=<n>. Actions: toggle, done, todo, status="<char>". Use daily to target today's daily note.
+
+```
+md task
+```
+
+**Options:**
+
+| Flag | Description | Default |
+|---|---|---|
+| `-p`, `--path` | Path to the notes directory. | current directory |
+
+**Examples:**
+
+```sh
+md task file=Recipe line=8
+md task ref="Recipe.md:8"
+md task ref="Recipe.md:8" toggle
+md task daily line=3 toggle
+md task file=Recipe line=8 done
+md task file=Recipe line=8 status=-
 ```
 
 ---

@@ -93,6 +93,8 @@ All commands accept `--path <path>` (`-p`) to set the notes directory. Defaults 
 | `md backlinks` | Find all notes that link to a given note via `[[wikilinks]]`. |
 | `md links` | List all outgoing `[[wikilinks]]` in a note, with a marker for missing targets. |
 | `md tree` | Print a visual directory tree, excluding hidden files and config directories. |
+| `md tasks` | List tasks in the vault. |
+| `md task` | Show or update a single task. |
 
 > Full reference: [docs/reference.md](docs/reference.md)
 

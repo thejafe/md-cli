@@ -2,7 +2,13 @@
 
 ## 2026-03-15
 
-- docs(readme): styled header with badges and cover image
+### Added
+- Interactive REPL mode (`md shell`) with tab-completion, persistent command history, and per-command inline descriptions — run multiple vault commands in a single session without re-invoking the CLI each time.
+- `tasks` command to list and filter checkbox tasks across the whole vault; `task` command to view and toggle an individual task's state by file and line number.
+
+### Changed
+- Vault resolution now auto-detects when the working directory is inside a registered vault, and falls back automatically when only one vault exists — removing the need to pass `--vault` on most commands.
+- Adopted [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format — entries are now grouped by `Added`, `Changed`, `Fixed`, and `Removed` under ISO-8601 date headings.
 
 ## 2026-03-14
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-03-15
+
+- docs(readme): styled header with badges and cover image
+
 ## 2026-03-14
 
 - feat(cli): embed ASCII splash screen in CLI

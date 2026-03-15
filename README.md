@@ -1,10 +1,24 @@
-# md-cli
+<p align="center">
+  <a href="https://github.com/thejafe/md-cli">
+    <img src="og.png" alt="md-cli project cover image">
+  </a>
+</p>
 
-A fast, headless CLI for working with markdown notes. Read, write, search, and navigate
-your notes from the terminal. With native support for frontmatter, wikilinks, and tags.
+<h1 align="center">md-cli</h1>
 
-Built for automation, scripting, and agentic AI workflows. Zero runtime dependencies.
-Runs on [Bun](https://bun.sh).
+<p align="center">
+  <a href="https://opensource.org/licenses/MIT">
+    <img src="https://img.shields.io/badge/license-MIT-yellow.svg">
+  </a>
+  <a href="https://github.com/thejafe/md-cli"><img src="https://img.shields.io/github/stars/thejafe/md-cli" alt="GitHub stars"></a>
+  <img src="https://img.shields.io/badge/runtime-bun-ff2d95?logo=bun&logoColor=white">
+</p>
+
+
+<p align="center">
+ A fast, headless CLI for working with Markdown notes. Built for automation, scripting, and agentic AI workflows. Zero runtime dependencies.
+Runs on <a href="bun.sh">Bun</a>.
+</p>
 
 ## Why md-cli?
 

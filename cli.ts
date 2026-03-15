@@ -13,42 +13,8 @@ import { groups, standaloneCommands, parseArgsOptions, findCommand } from "./lib
 import type { CommandDef } from "./lib/commands.ts";
 import { startRepl } from "./lib/repl.ts";
 
-const { version: VERSION } = await Bun.file("./package.json").json();
-
-// ─── Splash ──────────────────────────────────────────────────────────────────
-
-function splash() {
-  const C = "\x1b[0m";
-  const B = "\x1b[1;34m";
-  const W = "\x1b[1;97m";
-  const CB = "\x1b[1;36m";
-  const G = "\x1b[1;32m";
-  const D = "\x1b[0;34m";
-  const Y = "\x1b[1;33m";
-  const M = "\x1b[0;35m";
-
-  console.log(`
-       ${D}▄${B}▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄${D}▄${C}
-      ${B}█${CB}▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓${B}█${C}
-     ${B}█${CB}▓▓${C}                                      ${CB}▓▓${B}█${C}
-     ${B}█${CB}▓▓${C}  ${W}██${C}              ${W}██${C}          ${G}██${C}     ${CB}▓▓${B}█${C}
-     ${B}█${CB}▓▓${C}  ${W}███${C}            ${W}███${C}         ${G}████${C}    ${CB}▓▓${B}█${C}
-     ${B}█${CB}▓▓${C}  ${W}████${C}          ${W}████${C}        ${G}██████${C}   ${CB}▓▓${B}█${C}
-     ${B}█${CB}▓▓${C}  ${W}██${G}▓${W}██${C}        ${W}██${G}▓${W}██${C}       ${G}████████${C}  ${CB}▓▓${B}█${C}
-     ${B}█${CB}▓▓${C}  ${W}██${C} ${G}▓${W}██${C}      ${W}██${C} ${G}▓${W}██${C}        ${G}████${C}    ${CB}▓▓${B}█${C}
-     ${B}█${CB}▓▓${C}  ${W}██${C}  ${G}▓${W}██${C}    ${W}██${C}  ${G}▓${W}██${C}         ${G}██${C}     ${CB}▓▓${B}█${C}
-     ${B}█${CB}▓▓${C}  ${W}██${C}   ${G}▓${W}██${C}  ${W}██${C}   ${G}▓${W}██${C}         ${G}██${C}     ${CB}▓▓${B}█${C}
-     ${B}█${CB}▓▓${C}  ${W}██${C}    ${G}▓${W}████${C}    ${G}▓${W}██${C}                ${CB}▓▓${B}█${C}
-     ${B}█${CB}▓▓${C}  ${W}██${C}     ${G}▓${W}██${C}     ${G}▓${W}██${C}         ${G}██${C}     ${CB}▓▓${B}█${C}
-     ${B}█${CB}▓▓${C}  ${W}██${C}      ${G}▓${C}      ${G}▓${W}██${C}         ${G}██${C}     ${CB}▓▓${B}█${C}
-     ${B}█${CB}▓▓${C}                                      ${CB}▓▓${B}█${C}
-      ${B}█${CB}▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓${B}█${C}
-       ${D}▀${B}▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀${D}▀${C}
-
-                    ${W}m${B}cli ${Y}${VERSION}${C}
-              ${M}the markdown command line${C}
-`);
-}
+import pkg from "./package.json";
+const VERSION: string = pkg.version;
 
 // ─── Arg parsing ─────────────────────────────────────────────────────────────
 
@@ -66,7 +32,7 @@ function getOpts(cmdDef: CommandDef) {
     return parseArgs({
       args: args.slice(command === "vault" || command === "note" ? 2 : 1),
       options: parseArgsOptions(cmdDef),
-      strict: false,
+      strict: true,
       allowPositionals: true,
     });
   } catch (e: unknown) {
@@ -107,8 +73,6 @@ async function main() {
     }
   }
 
-  if (!process.env.MD_REPL_CHILD) splash();
-
   if (!command) {
     printHelp();
     return;
@@ -138,7 +102,7 @@ async function main() {
 
 // ─── vault ───────────────────────────────────────────────────────────────────
 
-async function vaultCmd() {
+function vaultCmd() {
   switch (subcommand) {
     case "init":   return vaultInit();
     case "list":   return vaultList();
@@ -637,7 +601,7 @@ async function tasksCmd() {
   } else if (kw.file) {
     const found = findNoteByName(a, kw.file as string);
     if (!found) die(`Note not found: ${kw.file}`);
-    notes = [found!];
+    notes = [found];
   } else if (kw.path) {
     const resolved = utils.resolveNotePath(kw.path as string);
     if (!a.exists(resolved)) die(`Note not found: ${resolved}`);
@@ -688,7 +652,7 @@ async function taskCmd() {
     if (isNaN(rLine)) die("Invalid line number in ref.");
     const found = findNoteByName(a, rPath);
     if (!found) die(`Note not found: ${rPath}`);
-    filePath = found!;
+    filePath = found;
     lineNum = rLine;
   } else if (kw.daily) {
     filePath = resolveDailyPath(opts);
@@ -698,7 +662,7 @@ async function taskCmd() {
     if (kw.file) {
       const found = findNoteByName(a, kw.file as string);
       if (!found) die(`Note not found: ${kw.file}`);
-      filePath = found!;
+      filePath = found;
     } else if (kw.path) {
       filePath = utils.resolveNotePath(kw.path as string);
     }
@@ -706,17 +670,17 @@ async function taskCmd() {
   }
 
   if (!filePath) die("Specify a task with ref=<path:line>, or file=<name> line=<n>, or daily line=<n>.");
-  if (!lineNum) die("Specify line=<n> or use ref=<path:line>.");
+  if (lineNum === undefined || lineNum <= 0) die("Specify line=<n> or use ref=<path:line>.");
 
-  const content = await a.read(filePath!);
+  const content = await a.read(filePath);
   const lines = content.split("\n");
-  const targetLine = lines[lineNum! - 1];
+  const targetLine = lines[lineNum - 1];
   if (targetLine === undefined) die(`Line ${lineNum} is out of range (file has ${lines.length} lines).`);
 
-  const m = TASK_RE.exec(targetLine!);
+  const m = TASK_RE.exec(targetLine);
   if (!m) die(`Line ${lineNum} is not a task: ${targetLine}`);
 
-  const task: TaskEntry = { path: filePath!, line: lineNum!, status: m[2]!, text: m[3]!.trimEnd() };
+  const task: TaskEntry = { path: filePath, line: lineNum, status: m[2]!, text: m[3]!.trimEnd() };
 
   // Actions: toggle, done, todo, status=X
   const hasAction = kw.toggle || kw.done || kw.todo || kw.status;
@@ -737,8 +701,8 @@ async function taskCmd() {
   else newStatus = kw.status as string;
 
   const prefix = m[1]!;
-  lines[lineNum! - 1] = `${prefix}[${newStatus}] ${task.text}`;
-  await a.write(filePath!, lines.join("\n"));
+  lines[lineNum - 1] = `${prefix}[${newStatus}] ${task.text}`;
+  await a.write(filePath, lines.join("\n"));
 
   console.log(`Updated: [${task.status}] → [${newStatus}]`);
   console.log(formatTask({ ...task, status: newStatus }));

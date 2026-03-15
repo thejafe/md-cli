@@ -72,17 +72,20 @@ function tokenize(input: string): string[] {
   const tokens: string[] = [];
   let cur = "";
   let q: string | null = null;
-  for (const ch of input) {
+  for (let i = 0; i < input.length; i++) {
+    const ch = input[i]!;
     if (q) {
-      if (ch === q) q = null;
-      else cur += ch;
+      if (ch === "\\" && i + 1 < input.length) {
+        cur += input[++i]!;
+      } else if (ch === q) {
+        q = null;
+      } else {
+        cur += ch;
+      }
     } else if (ch === '"' || ch === "'") {
       q = ch;
     } else if (ch === " " || ch === "\t") {
-      if (cur) {
-        tokens.push(cur);
-        cur = "";
-      }
+      if (cur) { tokens.push(cur); cur = ""; }
     } else {
       cur += ch;
     }

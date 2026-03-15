@@ -1,6 +1,6 @@
 <!-- AUTO GENERATED — run 'bun run gen' to update -->
 
-# md-cli Reference (v0.1.0)
+# md-cli Reference (v0.2.1)
 
 All commands accept `--path <path>` (`-p`) to specify the vault directory. Defaults to the current working directory.
 

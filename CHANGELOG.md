@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-03-16
+
+### Fixed
+- The ASCII splash screen no longer prints to stdout on every command invocation, which previously corrupted piped and redirected output (e.g. `md note list > file.txt`). The splash now appears only inside the interactive REPL.
+- Unknown or misspelled flags (e.g. `--contnet` instead of `--content`) are now rejected with a clear error instead of being silently ignored.
+- Note paths containing `..` segments are now blocked from escaping the vault boundary; any attempt to read or write outside the vault root raises an error immediately.
+- User-supplied regular expressions passed to `md note search --regex` are now validated before use; invalid patterns produce a readable error instead of a raw exception.
+- The vault registry (`vaults.json`) is now written atomically via a temp-file-then-rename pattern, preventing data loss if the process is interrupted mid-write. A warning is also printed if the file is found to be corrupt on load.
+- Vault registry reads are now memoized within a single command invocation, eliminating redundant disk I/O that previously parsed `vaults.json` two or three times per command.
+- The CLI version is now resolved from a compile-time import instead of a runtime `Bun.file("./package.json")` call, fixing a startup failure when `md` was invoked from a directory other than the project root.
+- Frontmatter values containing YAML special characters (e.g. colons, brackets, hash signs) are now correctly quoted during serialization, preventing round-trip corruption.
+- `isHidden` path check rewritten to a single-pass split, eliminating quadratic traversal on deeply nested paths.
+- Escape sequences (`\"`, `\'`, `\\`) inside quoted arguments in the REPL are now handled correctly by the tokenizer.
+- Line-number validation in `md task` now explicitly rejects zero and negative values with a clear message.
+- Removed redundant non-null assertions after `die()` calls, and removed unnecessary `async` from `vaultCmd`.
+
 ## 2026-03-15
 
 ### Added

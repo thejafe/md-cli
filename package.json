@@ -1,6 +1,6 @@
 {
   "name": "md-cli",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "type": "module",
   "description": "CLI to interact with Obsidian vaults on a headless server",
   "module": "cli.ts",

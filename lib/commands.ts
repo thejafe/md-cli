@@ -385,6 +385,37 @@ export const standaloneCommands: CommandDef[] = [
     },
     examples: ["md tree", "md tree --depth 2"],
   },
+  {
+    name: "tasks",
+    description:
+      "List tasks in the vault. Use positional keywords to filter: file=<name>, path=<path>, status=\"<char>\", todo, done, total, verbose, daily, format=json|tsv|csv.",
+    options: { path: pathOpt },
+    examples: [
+      "md tasks",
+      "md tasks todo",
+      "md tasks done",
+      "md tasks file=Recipe done",
+      "md tasks daily",
+      "md tasks daily total",
+      "md tasks verbose",
+      "md tasks 'status=?'",
+      "md tasks format=json",
+    ],
+  },
+  {
+    name: "task",
+    description:
+      "Show or update a single task. Identify by ref=<path:line> or file=<name> line=<n>. Actions: toggle, done, todo, status=\"<char>\". Use daily to target today's daily note.",
+    options: { path: pathOpt },
+    examples: [
+      "md task file=Recipe line=8",
+      "md task ref=\"Recipe.md:8\"",
+      "md task ref=\"Recipe.md:8\" toggle",
+      "md task daily line=3 toggle",
+      "md task file=Recipe line=8 done",
+      "md task file=Recipe line=8 status=-",
+    ],
+  },
 ];
 
 // ─── Helpers for cli.ts ──────────────────────────────────────────────────────

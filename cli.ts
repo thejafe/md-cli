@@ -5,11 +5,13 @@
 import { parseArgs } from "util";
 import { existsSync, mkdirSync } from "node:fs";
 import { resolve, join, basename as pathBasename } from "node:path";
+import { isatty } from "node:tty";
 import { VaultAdapter } from "./lib/adapter.ts";
 import * as config from "./lib/config.ts";
 import * as utils from "./lib/utils.ts";
 import { groups, standaloneCommands, parseArgsOptions, findCommand } from "./lib/commands.ts";
 import type { CommandDef } from "./lib/commands.ts";
+import { startRepl } from "./lib/repl.ts";
 
 const { version: VERSION } = await Bun.file("./package.json").json();
 
@@ -91,7 +93,7 @@ function printVaultInfo(v: config.VaultConfig): void {
 async function readStdin(): Promise<string | null> {
   if (Bun.stdin.stream().locked) return null;
   // Check if stdin is a TTY — no piped input
-  if (process.stdin.isTTY) return null;
+  if (isatty(0)) return null;
   const text = await Bun.stdin.text();
   return text || null;
 }
@@ -99,9 +101,19 @@ async function readStdin(): Promise<string | null> {
 // ─── Command dispatch ────────────────────────────────────────────────────────
 
 async function main() {
-  splash();
+  if (!command) {
+    if (isatty(0) && !process.env.MD_REPL_CHILD) {
+      return startRepl(VERSION);
+    }
+  }
 
-  if (!command || command === "--help" || command === "-h") {
+  if (!process.env.MD_REPL_CHILD) splash();
+
+  if (!command) {
+    printHelp();
+    return;
+  }
+  if (command === "--help" || command === "-h") {
     printHelp();
     return;
   }
@@ -118,6 +130,8 @@ async function main() {
     case "backlinks": return backlinksCmd();
     case "links": return linksCmd();
     case "tree":  return treeCmd();
+    case "tasks": return tasksCmd();
+    case "task":  return taskCmd();
     default: die(`Unknown command: ${command}\nRun 'md --help' for usage.`);
   }
 }
@@ -522,6 +536,212 @@ function treeCmd() {
   const a = adapter(opts);
   const depth = opts.values.depth ? parseInt(opts.values.depth as string, 10) : Infinity;
   process.stdout.write(a.tree("", depth));
+}
+
+// ─── tasks / task ────────────────────────────────────────────────────────────
+
+interface TaskEntry {
+  path: string;
+  line: number;
+  status: string;
+  text: string;
+}
+
+const TASK_RE = /^(\s*[-*+]\s+)\[(.)\]\s*(.*)/;
+
+function parseTasks(notePath: string, content: string): TaskEntry[] {
+  const tasks: TaskEntry[] = [];
+  const lines = content.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const m = TASK_RE.exec(lines[i]!);
+    if (m) tasks.push({ path: notePath, line: i + 1, status: m[2]!, text: m[3]!.trimEnd() });
+  }
+  return tasks;
+}
+
+/** Parse keyword-style positional args like `file=Recipe done status=?` */
+function parseKeywordArgs(positionals: string[]): Record<string, string | true> {
+  const kw: Record<string, string | true> = {};
+  for (const tok of positionals) {
+    const eq = tok.indexOf("=");
+    if (eq > 0) kw[tok.slice(0, eq)] = tok.slice(eq + 1);
+    else kw[tok] = true;
+  }
+  return kw;
+}
+
+function resolveDailyPath(opts: { values: Record<string,unknown> }): string {
+  const v = config.findVault(config.resolveVaultPath(opts.values.path as string | undefined));
+  const folder = v?.dailyFolder || "";
+  const date = new Date().toISOString().substring(0, 10);
+  return folder ? `${folder}/${date}.md` : `${date}.md`;
+}
+
+function findNoteByName(a: VaultAdapter, name: string): string | null {
+  const resolved = utils.resolveNotePath(name);
+  if (a.exists(resolved)) return resolved;
+  // Search all notes for a basename match
+  const notes = a.listNotes();
+  const target = utils.withoutExtension(utils.basename(resolved)).toLowerCase();
+  return notes.find((n) => utils.withoutExtension(utils.basename(n)).toLowerCase() === target) ?? null;
+}
+
+function formatTask(t: TaskEntry): string {
+  return `- [${t.status}] ${t.text}`;
+}
+
+function formatTaskVerbose(t: TaskEntry): string {
+  return `${t.path}:${t.line}: - [${t.status}] ${t.text}`;
+}
+
+function formatTasksOutput(tasks: TaskEntry[], format: string | undefined, verbose: boolean): string {
+  if (format === "json") return JSON.stringify(tasks, null, 2);
+  if (format === "tsv") {
+    const header = "path\tline\tstatus\ttext";
+    return [header, ...tasks.map((t) => `${t.path}\t${t.line}\t${t.status}\t${t.text}`)].join("\n");
+  }
+  if (format === "csv") {
+    const esc = (s: string) => `"${s.replace(/"/g, '""')}"`;
+    const header = "path,line,status,text";
+    return [header, ...tasks.map((t) => `${esc(t.path)},${t.line},${esc(t.status)},${esc(t.text)}`)].join("\n");
+  }
+  if (verbose) {
+    // Group by file
+    const grouped = new Map<string, TaskEntry[]>();
+    for (const t of tasks) {
+      const arr = grouped.get(t.path) ?? [];
+      arr.push(t);
+      grouped.set(t.path, arr);
+    }
+    const lines: string[] = [];
+    for (const [p, entries] of grouped) {
+      lines.push(p);
+      for (const t of entries) lines.push(`  ${t.line}: - [${t.status}] ${t.text}`);
+    }
+    return lines.join("\n");
+  }
+  return tasks.map(formatTask).join("\n");
+}
+
+async function tasksCmd() {
+  const opts = getOpts(findCommand("tasks")!);
+  const kw = parseKeywordArgs(opts.positionals as string[]);
+  const a = adapter(opts);
+
+  // Determine which notes to scan
+  let notes: string[];
+  if (kw.daily) {
+    const dp = resolveDailyPath(opts);
+    if (!a.exists(dp)) die(`Daily note not found: ${dp}`);
+    notes = [dp];
+  } else if (kw.file) {
+    const found = findNoteByName(a, kw.file as string);
+    if (!found) die(`Note not found: ${kw.file}`);
+    notes = [found!];
+  } else if (kw.path) {
+    const resolved = utils.resolveNotePath(kw.path as string);
+    if (!a.exists(resolved)) die(`Note not found: ${resolved}`);
+    notes = [resolved];
+  } else {
+    notes = a.listNotes();
+  }
+
+  // Collect tasks
+  const contents = await a.readMany(notes);
+  let tasks: TaskEntry[] = [];
+  for (const [notePath, content] of contents) {
+    tasks.push(...parseTasks(notePath, content));
+  }
+
+  // Filter by status keyword
+  if (kw.todo) tasks = tasks.filter((t) => t.status === " ");
+  if (kw.done) tasks = tasks.filter((t) => t.status === "x" || t.status === "X");
+  if (kw.status) tasks = tasks.filter((t) => t.status === (kw.status as string));
+
+  // Output
+  if (kw.total) {
+    console.log(tasks.length);
+    return;
+  }
+
+  if (tasks.length === 0) { console.log("No tasks found."); return; }
+
+  const format = typeof kw.format === "string" ? kw.format : undefined;
+  console.log(formatTasksOutput(tasks, format, !!kw.verbose));
+}
+
+async function taskCmd() {
+  const opts = getOpts(findCommand("task")!);
+  const kw = parseKeywordArgs(opts.positionals as string[]);
+  const a = adapter(opts);
+
+  // Resolve target file and line
+  let filePath: string | undefined;
+  let lineNum: number | undefined;
+
+  if (kw.ref) {
+    const ref = kw.ref as string;
+    const colonIdx = ref.lastIndexOf(":");
+    if (colonIdx === -1) die("Invalid ref format. Use ref=<path:line>");
+    const rPath = ref.slice(0, colonIdx);
+    const rLine = parseInt(ref.slice(colonIdx + 1), 10);
+    if (isNaN(rLine)) die("Invalid line number in ref.");
+    const found = findNoteByName(a, rPath);
+    if (!found) die(`Note not found: ${rPath}`);
+    filePath = found!;
+    lineNum = rLine;
+  } else if (kw.daily) {
+    filePath = resolveDailyPath(opts);
+    if (!a.exists(filePath)) die(`Daily note not found: ${filePath}`);
+    lineNum = kw.line ? parseInt(kw.line as string, 10) : undefined;
+  } else {
+    if (kw.file) {
+      const found = findNoteByName(a, kw.file as string);
+      if (!found) die(`Note not found: ${kw.file}`);
+      filePath = found!;
+    } else if (kw.path) {
+      filePath = utils.resolveNotePath(kw.path as string);
+    }
+    lineNum = kw.line ? parseInt(kw.line as string, 10) : undefined;
+  }
+
+  if (!filePath) die("Specify a task with ref=<path:line>, or file=<name> line=<n>, or daily line=<n>.");
+  if (!lineNum) die("Specify line=<n> or use ref=<path:line>.");
+
+  const content = await a.read(filePath!);
+  const lines = content.split("\n");
+  const targetLine = lines[lineNum! - 1];
+  if (targetLine === undefined) die(`Line ${lineNum} is out of range (file has ${lines.length} lines).`);
+
+  const m = TASK_RE.exec(targetLine!);
+  if (!m) die(`Line ${lineNum} is not a task: ${targetLine}`);
+
+  const task: TaskEntry = { path: filePath!, line: lineNum!, status: m[2]!, text: m[3]!.trimEnd() };
+
+  // Actions: toggle, done, todo, status=X
+  const hasAction = kw.toggle || kw.done || kw.todo || kw.status;
+
+  if (!hasAction) {
+    // Show task info
+    console.log(`file    ${utils.basename(filePath!)}`);
+    console.log(`line    ${lineNum}`);
+    console.log(`status  ${task.status === " " ? "(empty)" : task.status}`);
+    console.log(`text    ${formatTask(task)}`);
+    return;
+  }
+
+  let newStatus: string;
+  if (kw.done) newStatus = "x";
+  else if (kw.todo) newStatus = " ";
+  else if (kw.toggle) newStatus = (task.status === " ") ? "x" : " ";
+  else newStatus = kw.status as string;
+
+  const prefix = m[1]!;
+  lines[lineNum! - 1] = `${prefix}[${newStatus}] ${task.text}`;
+  await a.write(filePath!, lines.join("\n"));
+
+  console.log(`Updated: [${task.status}] → [${newStatus}]`);
+  console.log(formatTask({ ...task, status: newStatus }));
 }
 
 // ─── Help ────────────────────────────────────────────────────────────────────

@@ -5,7 +5,7 @@ import {
   existsSync, mkdirSync, readdirSync, renameSync, rmSync,
   statSync, unlinkSync, appendFileSync, type Dirent,
 } from "node:fs";
-import { join, dirname as pathDirname, basename as pathBasename, resolve, extname } from "node:path";
+import { join, dirname as pathDirname, basename as pathBasename, resolve, extname, relative } from "node:path";
 import {
   normalizePath, normalizeFilename, basename, isHidden, isNote,
 } from "./utils.ts";
@@ -60,7 +60,12 @@ export class VaultAdapter {
 
   fullPath(relPath: string): string {
     const n = normalizePath(relPath);
-    return join(this.basePath, n === "/" ? "" : n);
+    const full = resolve(join(this.basePath, n === "/" ? "" : n));
+    const rel = relative(this.basePath, full);
+    if (rel.startsWith("..") || rel.includes("/../")) {
+      throw new Error(`Path "${relPath}" is outside the vault`);
+    }
+    return full;
   }
 
   exists(relPath: string): boolean {
@@ -185,7 +190,14 @@ export class VaultAdapter {
 
   async search(query: string, folder = "", useRegex = false): Promise<SearchResult[]> {
     const notes = this.listNotes(folder);
-    const pattern = useRegex ? new RegExp(query, "gi") : null;
+    let pattern: RegExp | null = null;
+    if (useRegex) {
+      try {
+        pattern = new RegExp(query, "gi");
+      } catch (e) {
+        throw new Error(`Invalid regular expression: ${(e as Error).message}`);
+      }
+    }
     const lower = query.toLowerCase();
     const contents = await this.readMany(notes);
     const results: SearchResult[] = [];

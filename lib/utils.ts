@@ -36,12 +36,7 @@ export function withoutExtension(s: string): string {
 }
 
 export function isHidden(s: string): boolean {
-  let cur = s;
-  while (cur) {
-    if (basename(cur).startsWith(".")) return true;
-    cur = dirname(cur);
-  }
-  return false;
+  return s.split("/").some((part) => part.startsWith("."));
 }
 
 export function isNote(s: string): boolean {
@@ -145,6 +140,9 @@ export function parseFrontmatter(content: string): FrontmatterResult {
   return { data, body };
 }
 
+// Characters that require a YAML scalar to be double-quoted.
+const YAML_SPECIAL_RE = /[:#\[\]{}&*!,|>'"@`]|^\s|\s$/;
+
 export function serializeFrontmatter(data: Record<string, unknown>, body: string): string {
   if (!data || Object.keys(data).length === 0) return body;
 
@@ -154,6 +152,12 @@ export function serializeFrontmatter(data: Record<string, unknown>, body: string
       if (value.length === 0) continue;
       fm += `${key}:\n`;
       for (const item of value) fm += `  - ${item}\n`;
+    } else if (typeof value === "string") {
+      if (YAML_SPECIAL_RE.test(value)) {
+        fm += `${key}: "${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"\n`;
+      } else {
+        fm += `${key}: ${value}\n`;
+      }
     } else {
       fm += `${key}: ${value}\n`;
     }

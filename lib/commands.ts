@@ -215,7 +215,7 @@ export const groups: CommandGroup[] = [
       {
         name: "edit",
         description:
-          "Modify an existing note. Provide new content with `--content`, or append/prepend text. Falls back to stdin.",
+          "Replace an existing note's content with `--content` or piped stdin.",
         positionals: [
           { name: "note", required: true, description: "Note name or path." },
         ],
@@ -227,22 +227,11 @@ export const groups: CommandGroup[] = [
             description: "Replace entire note body.",
             placeholder: "text",
           },
-          append: {
-            type: "string",
-            short: "a",
-            description: "Append text to the end of the note.",
-            placeholder: "text",
-          },
-          prepend: {
-            type: "string",
-            description: "Prepend text to the body (after frontmatter).",
-            placeholder: "text",
-          },
         },
         stdin: "Replacement note body.",
         examples: [
-          "md note edit todo --append '- Buy milk'",
           "md note edit readme --content 'New content'",
+          "echo '# Rewritten' | md note edit readme",
         ],
       },
       {
@@ -273,6 +262,64 @@ export const groups: CommandGroup[] = [
         ],
         options: { path: pathOpt },
         examples: ["md note rename draft 'final version'"],
+      },
+      {
+        name: "append",
+        description:
+          "Append text to a note. With `--heading`, inserts at the end of that section (before the next heading).",
+        positionals: [
+          { name: "note", required: true, description: "Note name or path." },
+        ],
+        options: {
+          path: pathOpt,
+          content: {
+            type: "string",
+            short: "c",
+            description: "Text to append. Use `\\n` for newlines.",
+            placeholder: "text",
+          },
+          heading: {
+            type: "string",
+            short: "H",
+            description: "Target heading — appends at the end of that section.",
+            placeholder: "heading",
+          },
+        },
+        stdin: "Text to append.",
+        examples: [
+          "md note append todo --content '- Buy milk'",
+          "md note append todo --heading '## Shopping' --content '- eggs'",
+          "echo '- item' | md note append todo --heading 'Tasks'",
+        ],
+      },
+      {
+        name: "prepend",
+        description:
+          "Prepend text to a note (after frontmatter). With `--heading`, inserts right after that heading line.",
+        positionals: [
+          { name: "note", required: true, description: "Note name or path." },
+        ],
+        options: {
+          path: pathOpt,
+          content: {
+            type: "string",
+            short: "c",
+            description: "Text to prepend. Use `\\n` for newlines.",
+            placeholder: "text",
+          },
+          heading: {
+            type: "string",
+            short: "H",
+            description: "Target heading — prepends at the top of that section.",
+            placeholder: "heading",
+          },
+        },
+        stdin: "Text to prepend.",
+        examples: [
+          "md note prepend readme --content '> Warning: deprecated'",
+          "md note prepend notes --heading '## Ideas' --content '- spark'",
+          "echo '> pinned' | md note prepend journal",
+        ],
       },
       {
         name: "search",
@@ -384,6 +431,37 @@ export const standaloneCommands: CommandDef[] = [
       },
     },
     examples: ["md tree", "md tree --depth 2"],
+  },
+  {
+    name: "tasks",
+    description:
+      "List tasks in the vault. Use positional keywords to filter: file=<name>, path=<path>, status=\"<char>\", todo, done, total, verbose, daily, format=json|tsv|csv.",
+    options: { path: pathOpt },
+    examples: [
+      "md tasks",
+      "md tasks todo",
+      "md tasks done",
+      "md tasks file=Recipe done",
+      "md tasks daily",
+      "md tasks daily total",
+      "md tasks verbose",
+      "md tasks 'status=?'",
+      "md tasks format=json",
+    ],
+  },
+  {
+    name: "task",
+    description:
+      "Show or update a single task. Identify by ref=<path:line> or file=<name> line=<n>. Actions: toggle, done, todo, status=\"<char>\". Use daily to target today's daily note.",
+    options: { path: pathOpt },
+    examples: [
+      "md task file=Recipe line=8",
+      "md task ref=\"Recipe.md:8\"",
+      "md task ref=\"Recipe.md:8\" toggle",
+      "md task daily line=3 toggle",
+      "md task file=Recipe line=8 done",
+      "md task file=Recipe line=8 status=-",
+    ],
   },
 ];
 

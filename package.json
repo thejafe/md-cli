@@ -1,6 +1,6 @@
 {
   "name": "md-cli",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "type": "module",
   "description": "CLI to interact with Obsidian vaults on a headless server",
   "module": "cli.ts",
@@ -13,8 +13,17 @@
     "version:minor": "npm version minor --no-git-tag-version && bun run gen",
     "version:major": "npm version major --no-git-tag-version && bun run gen"
   },
-  "os": ["linux", "darwin"],
-  "keywords": ["obsidian", "vault", "markdown", "notes", "cli"],
+  "os": [
+    "linux",
+    "darwin"
+  ],
+  "keywords": [
+    "obsidian",
+    "vault",
+    "markdown",
+    "notes",
+    "cli"
+  ],
   "author": "thejafe",
   "license": "MIT",
   "devDependencies": {

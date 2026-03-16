@@ -1,6 +1,6 @@
 // Vault registry — stores vault metadata in ~/.md-cli/vaults.json (or XDG on Linux).
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join, resolve, basename } from "node:path";
 import { homedir, platform } from "node:os";
 import { randomUUID } from "node:crypto";
@@ -34,20 +34,28 @@ function vaultsPath(): string {
   return join(configDir(), "vaults.json");
 }
 
+let _cache: VaultConfig[] | null = null;
+
 function load(): VaultConfig[] {
+  if (_cache) return _cache;
   const p = vaultsPath();
-  if (!existsSync(p)) return [];
+  if (!existsSync(p)) return (_cache = []);
   try {
-    return JSON.parse(readFileSync(p, "utf-8"));
+    return (_cache = JSON.parse(readFileSync(p, "utf-8")));
   } catch {
-    return [];
+    console.warn(`Warning: ${p} is corrupt or unreadable — vault registry reset.`);
+    return (_cache = []);
   }
 }
 
 function save(vaults: VaultConfig[]): void {
+  _cache = vaults;
   const dir = configDir();
   mkdirSync(dir, { recursive: true, mode: 0o700 });
-  writeFileSync(vaultsPath(), JSON.stringify(vaults, null, 2), { mode: 0o600 });
+  const target = vaultsPath();
+  const tmp = `${target}.tmp`;
+  writeFileSync(tmp, JSON.stringify(vaults, null, 2), { mode: 0o600 });
+  renameSync(tmp, target);
 }
 
 export function registerVault(vaultPath: string, opts: VaultUpdateOpts = {}): VaultConfig {
@@ -98,5 +106,18 @@ export function unregisterVault(vaultPath: string): boolean {
 }
 
 export function resolveVaultPath(optPath?: string): string {
-  return resolve(optPath || ".");
+  if (optPath) return resolve(optPath);
+
+  // Check if CWD is inside a registered vault
+  const cwd = resolve(".");
+  const vaults = load();
+  for (const v of vaults) {
+    const vp = resolve(v.path);
+    if (cwd === vp || cwd.startsWith(vp + "/")) return vp;
+  }
+
+  // If exactly one vault is registered, use it
+  if (vaults.length === 1) return resolve(vaults[0].path);
+
+  return cwd;
 }

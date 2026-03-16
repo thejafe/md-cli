@@ -1,6 +1,6 @@
 <!-- AUTO GENERATED — run 'bun run gen' to update -->
 
-# md-cli Reference (v0.1.0)
+# md-cli Reference (v0.3.0)
 
 All commands accept `--path <path>` (`-p`) to specify the vault directory. Defaults to the current working directory.
 
@@ -19,6 +19,8 @@ All commands accept `--path <path>` (`-p`) to specify the vault directory. Defau
   - [`note edit`](#note-edit)
   - [`note delete`](#note-delete)
   - [`note rename`](#note-rename)
+  - [`note append`](#note-append)
+  - [`note prepend`](#note-prepend)
   - [`note search`](#note-search)
 - **[Tools](#tools)**
   - [`tags`](#tags)
@@ -26,6 +28,8 @@ All commands accept `--path <path>` (`-p`) to specify the vault directory. Defau
   - [`backlinks`](#backlinks)
   - [`links`](#links)
   - [`tree`](#tree)
+  - [`tasks`](#tasks)
+  - [`task`](#task)
 
 ## Vault Management
 
@@ -243,10 +247,10 @@ echo '# Draft' | md note create draft
 
 ### `note edit`
 
-Modify an existing note. Provide new content with `--content`, or append/prepend text. Falls back to stdin.
+Replace an existing note's content with `--content` or piped stdin.
 
 ```
-md note edit <note> [-c, --content <text>] [-a, --append <text>] [--prepend <text>]
+md note edit <note> [-c, --content <text>]
 ```
 
 **Arguments:**
@@ -261,16 +265,14 @@ md note edit <note> [-c, --content <text>] [-a, --append <text>] [--prepend <tex
 |---|---|---|
 | `-p`, `--path` | Path to the notes directory. | current directory |
 | `-c`, `--content` | Replace entire note body. | — |
-| `-a`, `--append` | Append text to the end of the note. | — |
-| `--prepend` | Prepend text to the body (after frontmatter). | — |
 
 **Stdin:** Replacement note body.
 
 **Examples:**
 
 ```sh
-md note edit todo --append '- Buy milk'
 md note edit readme --content 'New content'
+echo '# Rewritten' | md note edit readme
 ```
 
 ---
@@ -330,6 +332,74 @@ md note rename <note> <new-name>
 
 ```sh
 md note rename draft 'final version'
+```
+
+---
+
+### `note append`
+
+Append text to a note. With `--heading`, inserts at the end of that section (before the next heading).
+
+```
+md note append <note> [-c, --content <text>] [-H, --heading <heading>]
+```
+
+**Arguments:**
+
+| Argument | Description | |
+|---|---|---|
+| `note` | Note name or path. | **required** |
+
+**Options:**
+
+| Flag | Description | Default |
+|---|---|---|
+| `-p`, `--path` | Path to the notes directory. | current directory |
+| `-c`, `--content` | Text to append. Use `\n` for newlines. | — |
+| `-H`, `--heading` | Target heading — appends at the end of that section. | — |
+
+**Stdin:** Text to append.
+
+**Examples:**
+
+```sh
+md note append todo --content '- Buy milk'
+md note append todo --heading '## Shopping' --content '- eggs'
+echo '- item' | md note append todo --heading 'Tasks'
+```
+
+---
+
+### `note prepend`
+
+Prepend text to a note (after frontmatter). With `--heading`, inserts right after that heading line.
+
+```
+md note prepend <note> [-c, --content <text>] [-H, --heading <heading>]
+```
+
+**Arguments:**
+
+| Argument | Description | |
+|---|---|---|
+| `note` | Note name or path. | **required** |
+
+**Options:**
+
+| Flag | Description | Default |
+|---|---|---|
+| `-p`, `--path` | Path to the notes directory. | current directory |
+| `-c`, `--content` | Text to prepend. Use `\n` for newlines. | — |
+| `-H`, `--heading` | Target heading — prepends at the top of that section. | — |
+
+**Stdin:** Text to prepend.
+
+**Examples:**
+
+```sh
+md note prepend readme --content '> Warning: deprecated'
+md note prepend notes --heading '## Ideas' --content '- spark'
+echo '> pinned' | md note prepend journal
 ```
 
 ---
@@ -495,6 +565,63 @@ md tree [-d, --depth <n>]
 ```sh
 md tree
 md tree --depth 2
+```
+
+---
+
+### `tasks`
+
+List tasks in the vault. Use positional keywords to filter: file=<name>, path=<path>, status="<char>", todo, done, total, verbose, daily, format=json|tsv|csv.
+
+```
+md tasks
+```
+
+**Options:**
+
+| Flag | Description | Default |
+|---|---|---|
+| `-p`, `--path` | Path to the notes directory. | current directory |
+
+**Examples:**
+
+```sh
+md tasks
+md tasks todo
+md tasks done
+md tasks file=Recipe done
+md tasks daily
+md tasks daily total
+md tasks verbose
+md tasks 'status=?'
+md tasks format=json
+```
+
+---
+
+### `task`
+
+Show or update a single task. Identify by ref=<path:line> or file=<name> line=<n>. Actions: toggle, done, todo, status="<char>". Use daily to target today's daily note.
+
+```
+md task
+```
+
+**Options:**
+
+| Flag | Description | Default |
+|---|---|---|
+| `-p`, `--path` | Path to the notes directory. | current directory |
+
+**Examples:**
+
+```sh
+md task file=Recipe line=8
+md task ref="Recipe.md:8"
+md task ref="Recipe.md:8" toggle
+md task daily line=3 toggle
+md task file=Recipe line=8 done
+md task file=Recipe line=8 status=-
 ```
 
 ---

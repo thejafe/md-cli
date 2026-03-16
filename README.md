@@ -79,9 +79,11 @@ All commands accept `--path <path>` (`-p`) to set the notes directory. Defaults 
 | `md note list` | List all markdown notes, optionally scoped to a folder. |
 | `md note read` | Print the contents of a note to stdout. |
 | `md note create` | Create a new markdown note. |
-| `md note edit` | Modify an existing note. |
+| `md note edit` | Replace an existing note's content with `--content` or piped stdin. |
 | `md note delete` | Delete a note. |
 | `md note rename` | Rename or move a note. |
+| `md note append` | Append text to a note. |
+| `md note prepend` | Prepend text to a note (after frontmatter). |
 | `md note search` | Full-text search across all notes. |
 
 **Tools**
@@ -93,6 +95,8 @@ All commands accept `--path <path>` (`-p`) to set the notes directory. Defaults 
 | `md backlinks` | Find all notes that link to a given note via `[[wikilinks]]`. |
 | `md links` | List all outgoing `[[wikilinks]]` in a note, with a marker for missing targets. |
 | `md tree` | Print a visual directory tree, excluding hidden files and config directories. |
+| `md tasks` | List tasks in the vault. |
+| `md task` | Show or update a single task. |
 
 > Full reference: [docs/reference.md](docs/reference.md)
 

@@ -1,6 +1,6 @@
 <!-- AUTO GENERATED — run 'bun run gen' to update -->
 
-# md-cli Reference (v0.2.1)
+# md-cli Reference (v0.3.0)
 
 All commands accept `--path <path>` (`-p`) to specify the vault directory. Defaults to the current working directory.
 
@@ -19,6 +19,8 @@ All commands accept `--path <path>` (`-p`) to specify the vault directory. Defau
   - [`note edit`](#note-edit)
   - [`note delete`](#note-delete)
   - [`note rename`](#note-rename)
+  - [`note append`](#note-append)
+  - [`note prepend`](#note-prepend)
   - [`note search`](#note-search)
 - **[Tools](#tools)**
   - [`tags`](#tags)
@@ -245,10 +247,10 @@ echo '# Draft' | md note create draft
 
 ### `note edit`
 
-Modify an existing note. Provide new content with `--content`, or append/prepend text. Falls back to stdin.
+Replace an existing note's content with `--content` or piped stdin.
 
 ```
-md note edit <note> [-c, --content <text>] [-a, --append <text>] [--prepend <text>]
+md note edit <note> [-c, --content <text>]
 ```
 
 **Arguments:**
@@ -263,16 +265,14 @@ md note edit <note> [-c, --content <text>] [-a, --append <text>] [--prepend <tex
 |---|---|---|
 | `-p`, `--path` | Path to the notes directory. | current directory |
 | `-c`, `--content` | Replace entire note body. | — |
-| `-a`, `--append` | Append text to the end of the note. | — |
-| `--prepend` | Prepend text to the body (after frontmatter). | — |
 
 **Stdin:** Replacement note body.
 
 **Examples:**
 
 ```sh
-md note edit todo --append '- Buy milk'
 md note edit readme --content 'New content'
+echo '# Rewritten' | md note edit readme
 ```
 
 ---
@@ -332,6 +332,74 @@ md note rename <note> <new-name>
 
 ```sh
 md note rename draft 'final version'
+```
+
+---
+
+### `note append`
+
+Append text to a note. With `--heading`, inserts at the end of that section (before the next heading).
+
+```
+md note append <note> [-c, --content <text>] [-H, --heading <heading>]
+```
+
+**Arguments:**
+
+| Argument | Description | |
+|---|---|---|
+| `note` | Note name or path. | **required** |
+
+**Options:**
+
+| Flag | Description | Default |
+|---|---|---|
+| `-p`, `--path` | Path to the notes directory. | current directory |
+| `-c`, `--content` | Text to append. Use `\n` for newlines. | — |
+| `-H`, `--heading` | Target heading — appends at the end of that section. | — |
+
+**Stdin:** Text to append.
+
+**Examples:**
+
+```sh
+md note append todo --content '- Buy milk'
+md note append todo --heading '## Shopping' --content '- eggs'
+echo '- item' | md note append todo --heading 'Tasks'
+```
+
+---
+
+### `note prepend`
+
+Prepend text to a note (after frontmatter). With `--heading`, inserts right after that heading line.
+
+```
+md note prepend <note> [-c, --content <text>] [-H, --heading <heading>]
+```
+
+**Arguments:**
+
+| Argument | Description | |
+|---|---|---|
+| `note` | Note name or path. | **required** |
+
+**Options:**
+
+| Flag | Description | Default |
+|---|---|---|
+| `-p`, `--path` | Path to the notes directory. | current directory |
+| `-c`, `--content` | Text to prepend. Use `\n` for newlines. | — |
+| `-H`, `--heading` | Target heading — prepends at the top of that section. | — |
+
+**Stdin:** Text to prepend.
+
+**Examples:**
+
+```sh
+md note prepend readme --content '> Warning: deprecated'
+md note prepend notes --heading '## Ideas' --content '- spark'
+echo '> pinned' | md note prepend journal
 ```
 
 ---

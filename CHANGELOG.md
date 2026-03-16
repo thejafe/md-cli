@@ -1,6 +1,12 @@
 # Changelog
 
-## 2026-03-16
+## 2026-03-16 (0.3.0)
+
+### Added
+- `md note append <note>` and `md note prepend <note>` — dedicated subcommands for adding content to the end or beginning of a note. Both accept `--content` or piped stdin. The optional `--heading` flag targets a specific markdown section: `append` inserts at the end of that section (before the next heading), `prepend` inserts right after the heading line. Global prepend always lands after any YAML frontmatter.
+
+### Removed
+- `md note edit --append` and `md note edit --prepend` flags are removed in favour of the new dedicated subcommands above. `edit` now only handles full content replacement (`--content` or stdin).
 
 ### Fixed
 - The ASCII splash screen no longer prints to stdout on every command invocation, which previously corrupted piped and redirected output (e.g. `md note list > file.txt`). The splash now appears only inside the interactive REPL.

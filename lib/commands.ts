@@ -215,7 +215,7 @@ export const groups: CommandGroup[] = [
       {
         name: "edit",
         description:
-          "Modify an existing note. Provide new content with `--content`, or append/prepend text. Falls back to stdin.",
+          "Replace an existing note's content with `--content` or piped stdin.",
         positionals: [
           { name: "note", required: true, description: "Note name or path." },
         ],
@@ -227,22 +227,11 @@ export const groups: CommandGroup[] = [
             description: "Replace entire note body.",
             placeholder: "text",
           },
-          append: {
-            type: "string",
-            short: "a",
-            description: "Append text to the end of the note.",
-            placeholder: "text",
-          },
-          prepend: {
-            type: "string",
-            description: "Prepend text to the body (after frontmatter).",
-            placeholder: "text",
-          },
         },
         stdin: "Replacement note body.",
         examples: [
-          "md note edit todo --append '- Buy milk'",
           "md note edit readme --content 'New content'",
+          "echo '# Rewritten' | md note edit readme",
         ],
       },
       {
@@ -273,6 +262,64 @@ export const groups: CommandGroup[] = [
         ],
         options: { path: pathOpt },
         examples: ["md note rename draft 'final version'"],
+      },
+      {
+        name: "append",
+        description:
+          "Append text to a note. With `--heading`, inserts at the end of that section (before the next heading).",
+        positionals: [
+          { name: "note", required: true, description: "Note name or path." },
+        ],
+        options: {
+          path: pathOpt,
+          content: {
+            type: "string",
+            short: "c",
+            description: "Text to append. Use `\\n` for newlines.",
+            placeholder: "text",
+          },
+          heading: {
+            type: "string",
+            short: "H",
+            description: "Target heading — appends at the end of that section.",
+            placeholder: "heading",
+          },
+        },
+        stdin: "Text to append.",
+        examples: [
+          "md note append todo --content '- Buy milk'",
+          "md note append todo --heading '## Shopping' --content '- eggs'",
+          "echo '- item' | md note append todo --heading 'Tasks'",
+        ],
+      },
+      {
+        name: "prepend",
+        description:
+          "Prepend text to a note (after frontmatter). With `--heading`, inserts right after that heading line.",
+        positionals: [
+          { name: "note", required: true, description: "Note name or path." },
+        ],
+        options: {
+          path: pathOpt,
+          content: {
+            type: "string",
+            short: "c",
+            description: "Text to prepend. Use `\\n` for newlines.",
+            placeholder: "text",
+          },
+          heading: {
+            type: "string",
+            short: "H",
+            description: "Target heading — prepends at the top of that section.",
+            placeholder: "heading",
+          },
+        },
+        stdin: "Text to prepend.",
+        examples: [
+          "md note prepend readme --content '> Warning: deprecated'",
+          "md note prepend notes --heading '## Ideas' --content '- spark'",
+          "echo '> pinned' | md note prepend journal",
+        ],
       },
       {
         name: "search",

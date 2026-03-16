@@ -227,14 +227,16 @@ function vaultUnlink() {
 
 async function noteCmd() {
   switch (subcommand) {
-    case "list":   return noteList();
-    case "read":   return noteRead();
-    case "create": return noteCreate();
-    case "edit":   return noteEdit();
-    case "delete": return noteDelete();
-    case "rename": return noteRename();
-    case "search": return noteSearch();
-    default: die("Usage: md note <list|read|create|edit|delete|rename|search>");
+    case "list":    return noteList();
+    case "read":    return noteRead();
+    case "create":  return noteCreate();
+    case "edit":    return noteEdit();
+    case "append":  return noteAppend();
+    case "prepend": return notePrepend();
+    case "delete":  return noteDelete();
+    case "rename":  return noteRename();
+    case "search":  return noteSearch();
+    default: die("Usage: md note <list|read|create|edit|append|prepend|delete|rename|search>");
   }
 }
 
@@ -308,7 +310,7 @@ async function noteCreate() {
 async function noteEdit() {
   const opts = getOpts(findCommand("note", "edit")!);
   const notePath = opts.positionals[0];
-  if (!notePath) die("Usage: md note edit <note> [--content|--append|--prepend <text>]");
+  if (!notePath) die("Usage: md note edit <note> [--content <text>]");
 
   const a = adapter(opts);
   const resolved = utils.resolveNotePath(notePath);
@@ -317,25 +319,98 @@ async function noteEdit() {
   if (opts.values.content !== undefined) {
     await a.write(resolved, (opts.values.content as string).replace(/\\n/g, "\n"));
     console.log(`Updated: ${resolved}`);
-  } else if (opts.values.append !== undefined) {
-    const text = (opts.values.append as string).replace(/\\n/g, "\n");
-    a.append(resolved, (text.startsWith("\n") ? "" : "\n") + text);
-    console.log(`Appended to: ${resolved}`);
-  } else if (opts.values.prepend !== undefined) {
-    const existing = await a.read(resolved);
-    const { data, body } = utils.parseFrontmatter(existing);
-    const text = (opts.values.prepend as string).replace(/\\n/g, "\n");
-    const newBody = text + "\n" + body;
-    await a.write(resolved, data ? utils.serializeFrontmatter(data, newBody) : newBody);
-    console.log(`Prepended to: ${resolved}`);
   } else {
     const stdin = await readStdin();
     if (stdin) {
       await a.write(resolved, stdin);
       console.log(`Updated: ${resolved}`);
     } else {
-      die("No content provided. Use --content, --append, --prepend, or pipe via stdin.");
+      die("No content provided. Use --content or pipe via stdin.");
     }
+  }
+}
+
+/** Find the line range for a markdown heading's section. Strips leading #s for flexible matching. */
+function findHeadingSection(
+  lines: string[],
+  heading: string,
+): { headingIdx: number; bodyStart: number; bodyEnd: number } | null {
+  const query = heading.replace(/^#+\s*/, "").trim().toLowerCase();
+  for (let i = 0; i < lines.length; i++) {
+    const m = /^(#{1,6})\s+(.+)/.exec(lines[i]!);
+    if (!m) continue;
+    if (m[2]!.trim().toLowerCase() !== query) continue;
+    const level = m[1]!.length;
+    let bodyEnd = lines.length;
+    for (let j = i + 1; j < lines.length; j++) {
+      const nm = /^(#{1,6})\s/.exec(lines[j]!);
+      if (nm && nm[1]!.length <= level) { bodyEnd = j; break; }
+    }
+    return { headingIdx: i, bodyStart: i + 1, bodyEnd };
+  }
+  return null;
+}
+
+async function noteAppend() {
+  const opts = getOpts(findCommand("note", "append")!);
+  const notePath = opts.positionals[0];
+  if (!notePath) die("Usage: md note append <note> [--content <text>] [--heading <heading>]");
+
+  const a = adapter(opts);
+  const resolved = utils.resolveNotePath(notePath);
+  if (!a.exists(resolved)) die(`Note not found: ${resolved}`);
+
+  const rawText = (opts.values.content as string | undefined)?.replace(/\\n/g, "\n")
+    ?? await readStdin()
+    ?? die("No content provided. Use --content or pipe via stdin.");
+
+  const heading = opts.values.heading as string | undefined;
+  if (heading) {
+    const content = await a.read(resolved);
+    const lines = content.split("\n");
+    const section = findHeadingSection(lines, heading);
+    if (!section) die(`Heading not found: "${heading}"`);
+    // Insert before trailing blank lines at section end
+    let insertAt = section.bodyEnd;
+    while (insertAt > section.bodyStart && lines[insertAt - 1]!.trim() === "") insertAt--;
+    lines.splice(insertAt, 0, ...rawText.split("\n"));
+    await a.write(resolved, lines.join("\n"));
+    console.log(`Appended to [${heading}] in: ${resolved}`);
+  } else {
+    a.append(resolved, (rawText.startsWith("\n") ? "" : "\n") + rawText);
+    console.log(`Appended to: ${resolved}`);
+  }
+}
+
+async function notePrepend() {
+  const opts = getOpts(findCommand("note", "prepend")!);
+  const notePath = opts.positionals[0];
+  if (!notePath) die("Usage: md note prepend <note> [--content <text>] [--heading <heading>]");
+
+  const a = adapter(opts);
+  const resolved = utils.resolveNotePath(notePath);
+  if (!a.exists(resolved)) die(`Note not found: ${resolved}`);
+
+  const rawText = (opts.values.content as string | undefined)?.replace(/\\n/g, "\n")
+    ?? await readStdin()
+    ?? die("No content provided. Use --content or pipe via stdin.");
+
+  const heading = opts.values.heading as string | undefined;
+  if (heading) {
+    const content = await a.read(resolved);
+    const lines = content.split("\n");
+    const section = findHeadingSection(lines, heading);
+    if (!section) die(`Heading not found: "${heading}"`);
+    lines.splice(section.bodyStart, 0, ...rawText.split("\n"));
+    await a.write(resolved, lines.join("\n"));
+    console.log(`Prepended to [${heading}] in: ${resolved}`);
+  } else {
+    // Always insert after optional frontmatter, never before it
+    const existing = await a.read(resolved);
+    const { data, body } = utils.parseFrontmatter(existing);
+    const newBody = rawText + "\n" + body;
+    await a.write(resolved, data ? utils.serializeFrontmatter(data, newBody) : newBody);
+    console.log(`Prepended to: ${resolved}`);
   }
 }
 
